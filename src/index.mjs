@@ -76,6 +76,30 @@ app.get('/api/products', (req, res) => {
     res.send(mockProducts);
 });
 
+app.put('/api/users/:id', (req, res) => {
+    const {
+        body,
+        params: { id }
+    } = req;
+
+    const parsedId = parseInt(id);
+    if (!isIdValid(parsedId)) {
+        return res.status(400).send(getErrorResponse('Bad Request: Invalid ID.'));
+    }
+
+    const userIndex = mockUsers.findIndex(user => user.id === parsedId);
+    if (userIndex === -1) {
+        return res.status(404).send(getErrorResponse('User not found'));
+    }
+
+    const user = mockUsers[userIndex] = {
+        id: parsedId,
+        ...body
+    };
+
+    return res.status(200).send(user);
+});
+
 app.listen(PORT, () => {
     console.log(`Running on port ${PORT}`);
 });
