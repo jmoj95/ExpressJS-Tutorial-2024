@@ -55,7 +55,7 @@ app.post('/api/users', (req, res) => {
     const { body } = req;
     const newUser = { id: mockUsers.length + 1, ...body };
     mockUsers.push(newUser);
-    return res.status(200).send(newUser);
+    return res.send(newUser);
 });
 
 app.get('/api/users/:id', (req, res) => {
@@ -97,7 +97,28 @@ app.put('/api/users/:id', (req, res) => {
         ...body
     };
 
-    return res.status(200).send(user);
+    return res.send(user);
+});
+
+app.patch('/api/users/:id', (req, res) => {
+    const {
+        body,
+        params: { id }
+    } = req;
+
+    const parsedId = parseInt(id);
+    if (!isIdValid(parsedId)) {
+        return res.status(400).send(getErrorResponse('Bad Request: Invalid ID.'));
+    }
+
+    const userIndex = mockUsers.findIndex(user => user.id === parsedId);
+    if (userIndex === -1) {
+        return res.status(404).send(getErrorResponse('User not found'));
+    }
+
+    const user = mockUsers[userIndex] = { ...mockUsers[userIndex], ...body };
+
+    return res.send(user);
 });
 
 app.listen(PORT, () => {
