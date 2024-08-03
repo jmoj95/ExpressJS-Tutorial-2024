@@ -2,7 +2,7 @@ import express from 'express';
 
 const app = express();
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT;
 
 const mockUsers = [
     { id: 1, username: 'Anson', displayName: 'Anson' },
