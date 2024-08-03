@@ -121,6 +121,26 @@ app.patch('/api/users/:id', (req, res) => {
     return res.send(user);
 });
 
+app.delete('/api/users/:id', (req, res) => {
+    const {
+        params: { id }
+    } = req;
+
+    const parsedId = parseInt(id);
+    if (!isIdValid(parsedId)) {
+        return res.status(400).send(getErrorResponse('Bad Request: Invalid ID.'));
+    }
+
+    const userIndex = mockUsers.findIndex(user => user.id === parsedId);
+    if (userIndex === -1) {
+        return res.status(404).send(getErrorResponse('User not found'));
+    }
+
+    mockUsers.splice(userIndex, 1);
+
+    return res.sendStatus(200);
+});
+
 app.listen(PORT, () => {
     console.log(`Running on port ${PORT}`);
 });
