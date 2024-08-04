@@ -3,8 +3,7 @@ import express from 'express';
 import {
     validationResult,
     matchedData,
-    checkSchema,
-    param
+    checkSchema
 } from 'express-validator';
 
 import {
