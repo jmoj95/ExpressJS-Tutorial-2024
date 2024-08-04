@@ -4,6 +4,36 @@ const app = express();
 
 app.use(express.json());
 
+const loggingMiddleware = (req, res, next) => {
+    console.log(`${req.method} - ${req.url}`);
+    next();
+};
+
+const resolveIndexByUserId = (req, res, next) => {
+    const {
+        params: { id }
+    } = req;
+
+    const parsedId = parseInt(id);
+    if (!isIdValid(parsedId)) {
+        return res.status(400).send(getErrorResponse('Bad Request: Invalid ID.'));
+    }
+
+    const userIndex = mockUsers.findIndex(user => user.id === parsedId);
+    if (userIndex === -1) {
+        return res.status(404).send(getErrorResponse('User not found'));
+    }
+
+    req.parsedId = parsedId;
+    req.userIndex = userIndex;
+
+    return next();
+};
+
+// Middleware Global Use (calls before every endpoint)
+// Middlewwares must be registered before endpoints before being used by them
+// app.use(loggingMiddleware);
+
 const PORT = process.env.PORT;
 
 const mockUsers = [
@@ -34,10 +64,34 @@ const getErrorResponse = (message) => {
     };
 };
 
-app.get('/', (req, res) => {
+app.get('/', loggingMiddleware, (req, res) => {
     res.send({
         message: 'Hello, world!!!'
     });
+});
+
+app.get(
+    '/middlewaretest',
+    (req, res, next) => {
+        console.log('Base URL 1');
+        next();
+    },
+    (req, res, next) => {
+        console.log('Base URL 2');
+        next();
+    },
+    (req, res, next) => {
+        console.log('Base URL 3');
+        next();
+    },
+    (req, res) => {
+        return res.status(200).send({ message: 'Hello' });
+    }
+);
+
+app.use(loggingMiddleware, (req, res, next) => {
+    console.log('Finished logging...');
+    next();
 });
 
 app.get('/api/users', (req, res) => {
@@ -58,16 +112,10 @@ app.post('/api/users', (req, res) => {
     return res.send(newUser);
 });
 
-app.get('/api/users/:id', (req, res) => {
-    const parsedId = parseInt(req.params.id);
-    if (!isIdValid(parsedId)) {
-        return res.status(400).send(getErrorResponse('Bad Request: Invalid ID.'));
-    }
+app.get('/api/users/:id', resolveIndexByUserId, (req, res) => {
+    const { userIndex } = req;
 
-    const user = mockUsers.find(user => user.id === parsedId);
-    if (!user) {
-        return res.status(404).send(getErrorResponse('User not found'));
-    }
+    const user = mockUsers[userIndex];
 
     return res.send(user);
 });
@@ -76,21 +124,12 @@ app.get('/api/products', (req, res) => {
     res.send(mockProducts);
 });
 
-app.put('/api/users/:id', (req, res) => {
+app.put('/api/users/:id', resolveIndexByUserId, (req, res) => {
     const {
         body,
-        params: { id }
+        parsedId,
+        userIndex
     } = req;
-
-    const parsedId = parseInt(id);
-    if (!isIdValid(parsedId)) {
-        return res.status(400).send(getErrorResponse('Bad Request: Invalid ID.'));
-    }
-
-    const userIndex = mockUsers.findIndex(user => user.id === parsedId);
-    if (userIndex === -1) {
-        return res.status(404).send(getErrorResponse('User not found'));
-    }
 
     const user = mockUsers[userIndex] = {
         id: parsedId,
@@ -100,41 +139,19 @@ app.put('/api/users/:id', (req, res) => {
     return res.send(user);
 });
 
-app.patch('/api/users/:id', (req, res) => {
+app.patch('/api/users/:id', resolveIndexByUserId, (req, res) => {
     const {
         body,
-        params: { id }
+        userIndex
     } = req;
-
-    const parsedId = parseInt(id);
-    if (!isIdValid(parsedId)) {
-        return res.status(400).send(getErrorResponse('Bad Request: Invalid ID.'));
-    }
-
-    const userIndex = mockUsers.findIndex(user => user.id === parsedId);
-    if (userIndex === -1) {
-        return res.status(404).send(getErrorResponse('User not found'));
-    }
 
     const user = mockUsers[userIndex] = { ...mockUsers[userIndex], ...body };
 
     return res.send(user);
 });
 
-app.delete('/api/users/:id', (req, res) => {
-    const {
-        params: { id }
-    } = req;
-
-    const parsedId = parseInt(id);
-    if (!isIdValid(parsedId)) {
-        return res.status(400).send(getErrorResponse('Bad Request: Invalid ID.'));
-    }
-
-    const userIndex = mockUsers.findIndex(user => user.id === parsedId);
-    if (userIndex === -1) {
-        return res.status(404).send(getErrorResponse('User not found'));
-    }
+app.delete('/api/users/:id', resolveIndexByUserId, (req, res) => {
+    const { userIndex } = req;
 
     mockUsers.splice(userIndex, 1);
 
