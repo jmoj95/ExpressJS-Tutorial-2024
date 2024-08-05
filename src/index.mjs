@@ -6,59 +6,26 @@ import {
     checkSchema
 } from 'express-validator';
 
+import resolveIndexByUserId from './middlewares/resolveIndexByUserId.mjs';
+import loggingMiddleware from './middlewares/loggingMiddleware.mjs';
+
+import * as userHelper from './helpers/userHelper.mjs';
+
 import {
     createUserValidationSchema,
     createUserFilterSchema,
     userIdSchema
-} from './utils/validationSchemas.mjs'
+} from './utils/validationSchemas.mjs';
 
 const app = express();
 
 app.use(express.json());
-
-const loggingMiddleware = (req, res, next) => {
-    console.log(`${req.method} - ${req.url}`);
-    next();
-};
-
-const resolveIndexByUserId = (req, res, next) => {
-    const result = validationResult(req);
-    if (!result.isEmpty()) {
-        return res.status(400).send( { errors: result.array() });
-    }
-
-    const { id } = matchedData(req);
-    const parsedId = parseInt(id);
-    if (isNaN(parsedId)) {
-        return res.status(400).send(getErrorResponse('Invalid ID'));
-    }
-
-    const userIndex = mockUsers.findIndex(user => user.id === parsedId);
-    if (userIndex === -1) {
-        return res.status(404).send(getErrorResponse('User not found'));
-    }
-
-    req.parsedId = parsedId;
-    req.userIndex = userIndex;
-
-    return next();
-};
 
 // Middleware Global Use (calls before every endpoint)
 // Middlewwares must be registered before endpoints before being used by them
 // app.use(loggingMiddleware);
 
 const PORT = process.env.PORT;
-
-const mockUsers = [
-    { id: 1, username: 'Anson', displayName: 'Anson' },
-    { id: 2, username: 'Jack', displayName: 'Jack' },
-    { id: 3, username: 'Adam', displayName: 'Adam' },
-    { id: 4, username: 'Tina', displayName: 'Tina' },
-    { id: 5, username: 'jason', displayName: 'Jason' },
-    { id: 6, username: 'Henry', displayName: 'Henry' },
-    { id: 7, username: 'Marilyn', displayName: 'Marilyn' }
-];
 
 const mockProducts = [
     { id: 123, name: 'Chicken Breast', price: 12.99 }
@@ -113,13 +80,11 @@ app.get(
         const data = matchedData(req);
         const { filter, value } = data;
         if (filter && value) {
-            const filteredUsers = mockUsers.filter(user =>
-                (filter in user) &&
-                user[filter].toLowerCase().includes(value.toLowerCase()));
+            const filteredUsers = userHelper.filterUsers(filter, value);
             return res.send(filteredUsers);
         }
 
-        return res.send(mockUsers);
+        return res.send(userHelper.getAllUsers());
     }
 );
 
@@ -133,9 +98,7 @@ app.post(
         }
 
         const data = matchedData(req);
-        const newUser = { id: mockUsers.length + 1, ...data };
-
-        mockUsers.push(newUser);
+        const newUser = userHelper.createUser(data);
 
         return res.send(newUser);
     }
@@ -146,9 +109,12 @@ app.get(
     checkSchema(userIdSchema),
     resolveIndexByUserId,
     (req, res) => {
-        const { userIndex } = req;
+        const { parsedId } = req;
 
-        const user = mockUsers[userIndex];
+        const user = userHelper.findUserById(parsedId);
+        if (!user) {
+            return res.status(404).send(getErrorResponse('User not found'));
+        }
 
         return res.send(user);
     }
@@ -165,14 +131,13 @@ app.put(
     (req, res) => {
         const {
             body,
-            parsedId,
-            userIndex
+            parsedId
         } = req;
 
-        const user = mockUsers[userIndex] = {
-            id: parsedId,
-            ...body
-        };
+        const user = userHelper.putUser(parsedId, body);
+        if (!user) {
+            return res.status(404).send(getErrorResponse('User not found'));
+        }
 
         return res.send(user);
     }
@@ -185,10 +150,13 @@ app.patch(
     (req, res) => {
         const {
             body,
-            userIndex
+            parsedId
         } = req;
 
-        const user = mockUsers[userIndex] = { ...mockUsers[userIndex], ...body };
+        const user = userHelper.patchUser(parsedId, body);
+        if (!user) {
+            return res.status(404).send(getErrorResponse('User not found'));
+        }
 
         return res.send(user);
     }
@@ -199,9 +167,9 @@ app.delete(
     checkSchema(userIdSchema),
     resolveIndexByUserId,
     (req, res) => {
-        const { userIndex } = req;
+        const { parsedId } = req;
 
-        mockUsers.splice(userIndex, 1);
+        userHelper.deleteUser(parsedId);
 
         return res.sendStatus(200);
     }
