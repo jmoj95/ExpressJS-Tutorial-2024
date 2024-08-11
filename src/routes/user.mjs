@@ -22,6 +22,14 @@ router.get(
     '/',
     checkSchema(createUserFilterSchema),
     (req, res) => {
+        console.log(req.session.id);
+        req.sessionStore.get(req.session.id, (err, sessionData) => {
+            if (err) {
+                console.log(err);
+                throw err;
+            }
+            console.log(sessionData);
+        });
         const result = validationResult(req);
         if (!result.isEmpty()) {
             return res.status(400).send( { errors: result.array() });
